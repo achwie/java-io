@@ -19,13 +19,13 @@ public class FilteringReaderTest {
   public void _() throws IOException {
     final String expected = "Hello World!";
     final Properties props = new Properties();
-    props.put("name", "World");
+    props.put("${name}", "World");
 
     final PropertiesFilterReader fr = new PropertiesFilterReader(new StringReader("Hello ${name}!"), props);
 
     final String actual = readToString(fr);
 
-    assertEquals(actual, expected);
+    assertEquals(expected, actual);
   }
 
   // -- End of Tests -----------------------------------------------------------
