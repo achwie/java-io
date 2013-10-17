@@ -12,21 +12,19 @@ public class PropertiesFilterReader extends Reader {
   private final Reader reader;
   private final Map<Object, Object> replacements;
   private SimpleReplacementBuffer buffer;
-  private boolean bufferInitialized;
 
   public PropertiesFilterReader(Reader reader, Map<Object, Object> replacements) {
     this.reader = reader;
     this.replacements = replacements;
     this.buffer = new SimpleReplacementBuffer();
+
+    initBuffer();
   }
 
   @Override
   public int read(char[] cbuf, int off, int len) throws IOException {
-    if (!bufferInitialized)
-      initBuffer();
-
     for (int i = 0; i < len; i++) {
-      readNext();
+      buffer.readAhead(reader);
 
       for (Object token : replacements.keySet())
         buffer.replaceIfExists(token.toString(), replacements.get(token).toString());
@@ -45,26 +43,13 @@ public class PropertiesFilterReader extends Reader {
     reader.close();
   }
 
-  private void readNext() throws IOException {
-    final int ch = reader.read();
-
-    if (ch != -1)
-      buffer.append((char) ch);
-  }
-
-  private void initBuffer() throws IOException {
+  private void initBuffer() {
     int maxLen = 0;
     for (Object key : replacements.keySet())
       if (key.toString().length() > maxLen)
         maxLen = key.toString().length();
 
-    final char[] buff = new char[maxLen];
-    final int charsRead = reader.read(buff);
-
-    final String readAheadBuff = String.valueOf(buff, 0, (charsRead > 0) ? charsRead : buff.length);
-
-    buffer.initialize(maxLen, readAheadBuff);
-    bufferInitialized = true;
+    buffer.initialize(maxLen);
   }
 
   /**
@@ -72,9 +57,9 @@ public class PropertiesFilterReader extends Reader {
    * @author Achim Wiedemann, Oct 16, 2013
    */
   static interface ReplacementBuffer {
-    public void initialize(int bufferSize, String readAhead);
+    public void initialize(int bufferSize);
 
-    public void append(char ch);
+    public void readAhead(Reader reader) throws IOException;
 
     public boolean hasMore();
 
@@ -88,14 +73,26 @@ public class PropertiesFilterReader extends Reader {
    * @author Achim Wiedemann, Oct 16, 2013
    */
   static class SimpleReplacementBuffer implements ReplacementBuffer {
-    private String readAheadBuff = null;
+    private String readAheadBuff = "";
+    private int bufferSize;
 
-    public void initialize(int bufferSize, String readAhead) {
-      this.readAheadBuff = readAhead;
+    public void initialize(int bufferSize) {
+      this.bufferSize = bufferSize;
     }
 
-    public void append(char ch) {
-      readAheadBuff += ch;
+    public void readAhead(Reader reader) throws IOException {
+      final int readAheadSize = bufferSize - readAheadBuff.length();
+
+      if (readAheadSize < 1)
+        return;
+
+      final char[] buff = new char[readAheadSize];
+      final int charsRead = reader.read(buff);
+
+      if (charsRead == -1)
+        return;
+
+      this.readAheadBuff += String.valueOf(buff, 0, charsRead);
     }
 
     public boolean hasMore() {
