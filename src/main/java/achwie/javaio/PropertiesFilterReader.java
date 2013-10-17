@@ -7,36 +7,34 @@ import java.util.Map;
 /**
  * 
  * @author Achim Wiedemann, Oct 15, 2013
- * 
  */
 public class PropertiesFilterReader extends Reader {
   private final Reader reader;
   private final Map<Object, Object> replacements;
-  private int maxKeyLen;
-  private String readAheadBuff = null;
+  private SimpleReplacementBuffer buffer;
+  private boolean bufferInitialized;
 
   public PropertiesFilterReader(Reader reader, Map<Object, Object> replacements) {
     this.reader = reader;
     this.replacements = replacements;
+    this.buffer = new SimpleReplacementBuffer();
   }
 
   @Override
   public int read(char[] cbuf, int off, int len) throws IOException {
+    if (!bufferInitialized)
+      initBuffer();
+
     for (int i = 0; i < len; i++) {
-      if (readAheadBuff == null)
-        initBuffer();
-      else
-        readNext();
+      readNext();
 
-      String token;
-      if ((token = bufferStartsWithToken()) != null)
-        replaceTokenInBuffer(token);
+      for (Object token : replacements.keySet())
+        buffer.replaceIfExists(token.toString(), replacements.get(token).toString());
 
-      int ch = shiftFromBuffer();
-      if (ch == -1)
+      if (!buffer.hasMore())
         return (i != 0) ? i : -1; // Filled the buffer partially or not at all?
 
-      cbuf[off + i] = (char) ch;
+      cbuf[off + i] = buffer.take();
     }
 
     return len; // Filled the whole buffer
@@ -47,32 +45,11 @@ public class PropertiesFilterReader extends Reader {
     reader.close();
   }
 
-  private void replaceTokenInBuffer(String token) {
-    readAheadBuff = replacements.get(token).toString() + readAheadBuff.substring(token.length());
-  }
-
-  private String bufferStartsWithToken() {
-    for (Object token : replacements.keySet())
-      if (readAheadBuff.startsWith(token.toString()))
-        return token.toString();
-
-    return null;
-  }
-
   private void readNext() throws IOException {
     final int ch = reader.read();
 
     if (ch != -1)
-      readAheadBuff += (char) ch;
-  }
-
-  private int shiftFromBuffer() {
-    if (readAheadBuff.length() == 0)
-      return -1;
-
-    final char firstChar = readAheadBuff.charAt(0);
-    readAheadBuff = readAheadBuff.substring(1);
-    return firstChar;
+      buffer.append((char) ch);
   }
 
   private void initBuffer() throws IOException {
@@ -81,11 +58,59 @@ public class PropertiesFilterReader extends Reader {
       if (key.toString().length() > maxLen)
         maxLen = key.toString().length();
 
-    this.maxKeyLen = maxLen;
-
     final char[] buff = new char[maxLen];
     final int charsRead = reader.read(buff);
 
-    readAheadBuff = String.valueOf(buff, 0, (charsRead > 0) ? charsRead : buff.length);
+    final String readAheadBuff = String.valueOf(buff, 0, (charsRead > 0) ? charsRead : buff.length);
+
+    buffer.initialize(maxLen, readAheadBuff);
+    bufferInitialized = true;
+  }
+
+  /**
+   * 
+   * @author Achim Wiedemann, Oct 16, 2013
+   */
+  static interface ReplacementBuffer {
+    public void initialize(int bufferSize, String readAhead);
+
+    public void append(char ch);
+
+    public boolean hasMore();
+
+    public char take();
+
+    public void replaceIfExists(String token, String replacement);
+  }
+
+  /**
+   * 
+   * @author Achim Wiedemann, Oct 16, 2013
+   */
+  static class SimpleReplacementBuffer implements ReplacementBuffer {
+    private String readAheadBuff = null;
+
+    public void initialize(int bufferSize, String readAhead) {
+      this.readAheadBuff = readAhead;
+    }
+
+    public void append(char ch) {
+      readAheadBuff += ch;
+    }
+
+    public boolean hasMore() {
+      return readAheadBuff.length() > 0;
+    }
+
+    public char take() {
+      final char firstChar = readAheadBuff.charAt(0);
+      readAheadBuff = readAheadBuff.substring(1);
+      return firstChar;
+    }
+
+    public void replaceIfExists(String token, String replacement) {
+      if (readAheadBuff.startsWith(token))
+        readAheadBuff = replacement + readAheadBuff.substring(token.length());
+    }
   }
 }
