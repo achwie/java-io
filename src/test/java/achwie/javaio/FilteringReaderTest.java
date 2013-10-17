@@ -16,7 +16,7 @@ import org.junit.Test;
  */
 public class FilteringReaderTest {
   @Test
-  public void _() throws IOException {
+  public void replaceSingleProperty() throws IOException {
     final String expected = "Hello World!";
     final Properties props = new Properties();
     props.put("${name}", "World");
