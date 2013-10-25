@@ -11,12 +11,12 @@ import java.util.Map;
 public class PropertiesFilterReader extends Reader {
   private final Reader reader;
   private final Map<Object, Object> replacements;
-  private SimpleReplacementBuffer buffer;
+  private ReplacementBuffer buffer;
 
   public PropertiesFilterReader(Reader reader, Map<Object, Object> replacements) {
     this.reader = reader;
     this.replacements = replacements;
-    this.buffer = new SimpleReplacementBuffer();
+    this.buffer = createBuffer();
 
     initBuffer();
   }
@@ -41,6 +41,10 @@ public class PropertiesFilterReader extends Reader {
   @Override
   public void close() throws IOException {
     reader.close();
+  }
+
+  protected ReplacementBuffer createBuffer() {
+    return new RingReplacementBuffer();
   }
 
   private void initBuffer() {
@@ -108,6 +112,81 @@ public class PropertiesFilterReader extends Reader {
     public void replaceIfExists(String token, String replacement) {
       if (readAheadBuff.startsWith(token))
         readAheadBuff = replacement + readAheadBuff.substring(token.length());
+    }
+  }
+
+  /**
+   * 
+   * @author Achim Wiedemann, Oct 21, 2013
+   */
+  static class RingReplacementBuffer implements ReplacementBuffer {
+    private String replacement;
+    private int replacementPos;
+    private CharRingBuffer buffer;
+
+    @Override
+    public void initialize(int bufferSize) {
+      buffer = new CharRingBuffer(bufferSize);
+    }
+
+    @Override
+    public void readAhead(Reader reader) throws IOException {
+      if (inReplacement())
+        return;
+
+      final int readAheadSize = buffer.maxSize() - buffer.length();
+
+      if (readAheadSize < 1)
+        return;
+
+      final char[] buff = new char[readAheadSize];
+      final int charsRead = reader.read(buff);
+
+      if (charsRead == -1)
+        return;
+
+      buffer.append(buff, 0, charsRead);
+    }
+
+    @Override
+    public boolean hasMore() {
+      if (inReplacement())
+        return replacement.length() - replacementPos > 0;
+      else
+        return buffer.length() > 0;
+    }
+
+    @Override
+    public char take() {
+      if (inReplacement()) {
+        final char ch = replacement.charAt(replacementPos++);
+        if (replacement.length() == replacementPos) {
+          replacement = null;
+          replacementPos = 0;
+        }
+        return ch;
+      } else {
+        return (char) buffer.take();
+      }
+    }
+
+    @Override
+    public void replaceIfExists(String token, String replacement) {
+      if (!buffer.toString().startsWith(token))
+        return;
+
+      // Remove token from buffer
+      // TODO: Allow to take multiple chars at once
+      for (int i = 0; i < token.length(); i++)
+        buffer.take();
+
+      // Populate replacement buffer
+      this.replacement = replacement;
+      this.replacementPos = 0;
+    }
+
+    private boolean inReplacement() {
+      return replacement != null;
     }
   }
 }

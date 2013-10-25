@@ -18,6 +18,10 @@ class CharRingBuffer implements CharSequence {
     this.buffer = new char[maxSize];
   }
 
+  public int maxSize() {
+    return maxSize;
+  }
+
   @Override
   public int length() {
     return length;
@@ -51,16 +55,25 @@ class CharRingBuffer implements CharSequence {
       incPos(1);
   }
 
-  public void append(String str) {
-    for (char ch : str.toCharArray())
+  public void append(char[] chars) {
+    for (char ch : chars)
       append(ch);
+  }
+
+  public void append(char[] chars, int pos, int length) {
+    for (int i = 0; i < length; i++)
+      append(chars[pos + i]);
+  }
+
+  public void append(String str) {
+    append(str.toCharArray());
   }
 
   public char[] toCharArray() {
     final char[] target = new char[length];
 
     // Copy portion to end of buffer
-    final int copyToEnd = length - pos;
+    final int copyToEnd = Math.min(maxSize - pos, length);
     System.arraycopy(buffer, pos, target, 0, copyToEnd);
 
     // Handle wrap around

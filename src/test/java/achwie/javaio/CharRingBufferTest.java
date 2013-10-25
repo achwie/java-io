@@ -1,5 +1,6 @@
 package achwie.javaio;
 
+import static java.lang.String.*;
 import static org.junit.Assert.*;
 
 import org.junit.Test;
@@ -11,7 +12,7 @@ import org.junit.Test;
  */
 public class CharRingBufferTest {
   @Test
-  public void test_noOverflow() {
+  public void test_append_withString_noOverflow() {
     CharRingBuffer buffer = new CharRingBuffer(256);
     buffer.append("John Doe");
 
@@ -19,9 +20,19 @@ public class CharRingBufferTest {
   }
 
   @Test
-  public void test_singleOverflow() {
+  public void test_append_withString_singleOverflow() {
     CharRingBuffer buffer = new CharRingBuffer(5);
     buffer.append("John Doe");
+
+    assertEquals("n Doe", buffer.toString());
+  }
+
+  @Test
+  public void test_append__withCharArray() {
+    CharRingBuffer buffer = new CharRingBuffer(5);
+    buffer.append("John");
+
+    buffer.append(new char[] { ' ', 'D', 'o', 'e' });
 
     assertEquals("n Doe", buffer.toString());
   }
@@ -66,6 +77,18 @@ public class CharRingBufferTest {
 
     assertEquals('n', buffer.take());
     assertEquals(4, buffer.length());
+  }
+
+  @Test
+  public void test_toString() {
+    CharRingBuffer buffer = new CharRingBuffer(7);
+    buffer.append("${name}");
+
+    for (int i = 0; i < 7; i++) {
+      final String expected = "${name}".substring(i);
+      assertEquals(format("Iteration #%d", i), expected, buffer.toString());
+      buffer.take();
+    }
   }
 
   @Test
