@@ -78,7 +78,7 @@ class CharRingBuffer implements CharSequence {
 
     // Handle wrap around
     if (copyToEnd < length)
-      System.arraycopy(buffer, 0, target, copyToEnd, pos);
+      System.arraycopy(buffer, 0, target, copyToEnd, length - copyToEnd);
 
     return target;
   }

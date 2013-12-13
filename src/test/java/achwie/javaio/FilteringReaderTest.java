@@ -81,6 +81,22 @@ public class FilteringReaderTest {
     assertEquals(expected, actual);
   }
 
+  // This test was added after I encountered an ArrayIndexOutOfBoundsException
+  // in the CharRingBuffer while writing the performance tests.
+  @Test
+  public void test_bufferContentIsOneSmallerThanMaxBufferSize() throws IOException {
+    final String expected = "replacement0 in a certain string.";
+    final String input = "${property0} in a certain string.";
+    final Properties props = new Properties();
+    props.put("${property0}", "replacement0");
+
+    final PropertiesFilterReader fr = new PropertiesFilterReader(new StringReader(input), props);
+
+    final String actual = readToString(fr);
+
+    assertEquals(expected, actual);
+  }
+
   // -- End of Tests -----------------------------------------------------------
   private String createNonsense(int length) {
     final Random rand = new Random();
