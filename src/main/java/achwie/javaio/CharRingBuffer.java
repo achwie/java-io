@@ -36,10 +36,6 @@ class CharRingBuffer implements CharSequence {
     return buffer[denormalize(index)];
   }
 
-  private int denormalize(int index) {
-    return (pos + index) % maxSize;
-  }
-
   @Override
   public CharSequence subSequence(int start, int end) {
     throw new UnsupportedOperationException();
@@ -96,6 +92,10 @@ class CharRingBuffer implements CharSequence {
     length--;
 
     return firstChar;
+  }
+
+  private int denormalize(int index) {
+    return (pos + index) % maxSize;
   }
 
   private void incPos(int increment) {

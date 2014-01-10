@@ -15,7 +15,7 @@ import org.junit.Test;
  * @author Achim Wiedemann, Oct 15, 2013
  * 
  */
-public class FilteringReaderTest {
+public class PropertiesFilterReaderTest {
   @Test
   public void test_replaceSingleProperty() throws IOException {
     final String expected = "Hello World!";
