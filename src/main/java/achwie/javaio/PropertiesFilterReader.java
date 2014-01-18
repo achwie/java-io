@@ -2,6 +2,9 @@ package achwie.javaio;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -11,14 +14,26 @@ import java.util.Map;
 public class PropertiesFilterReader extends Reader {
   private final Reader reader;
   private final Map<Object, Object> replacements;
+  private final StringListSearchTree searchMap;
   private ReplacementBuffer buffer;
 
   public PropertiesFilterReader(Reader reader, Map<Object, Object> replacements) {
     this.reader = reader;
     this.replacements = replacements;
     this.buffer = createBuffer();
+    this.searchMap = new StringListSearchTree(keysAsSortedListOfStrings(replacements));
 
     initBuffer();
+  }
+
+  private List<String> keysAsSortedListOfStrings(Map<Object, Object> map) {
+    List<String> sortedStrings = new ArrayList<>(map.size());
+    for (Object key : map.keySet())
+      sortedStrings.add(key.toString());
+
+    Collections.sort(sortedStrings);
+
+    return sortedStrings;
   }
 
   @Override
@@ -26,8 +41,9 @@ public class PropertiesFilterReader extends Reader {
     for (int i = 0; i < len; i++) {
       buffer.readAhead(reader);
 
-      for (Object token : replacements.keySet())
-        buffer.replaceIfExists(token.toString(), replacements.get(token).toString());
+      final Object key = searchMap.startOf(buffer.toString());
+      if (key != null)
+        buffer.replaceIfExists(key.toString(), replacements.get(key).toString());
 
       if (!buffer.hasMore())
         return (i != 0) ? i : -1; // Filled the buffer partially or not at all?
@@ -70,6 +86,8 @@ public class PropertiesFilterReader extends Reader {
     public char take();
 
     public void replaceIfExists(String token, String replacement);
+
+    public String toString();
   }
 
   /**
@@ -80,10 +98,12 @@ public class PropertiesFilterReader extends Reader {
     private String readAheadBuff = "";
     private int bufferSize;
 
+    @Override
     public void initialize(int bufferSize) {
       this.bufferSize = bufferSize;
     }
 
+    @Override
     public void readAhead(Reader reader) throws IOException {
       final int readAheadSize = bufferSize - readAheadBuff.length();
 
@@ -99,19 +119,27 @@ public class PropertiesFilterReader extends Reader {
       this.readAheadBuff += String.valueOf(buff, 0, charsRead);
     }
 
+    @Override
     public boolean hasMore() {
       return readAheadBuff.length() > 0;
     }
 
+    @Override
     public char take() {
       final char firstChar = readAheadBuff.charAt(0);
       readAheadBuff = readAheadBuff.substring(1);
       return firstChar;
     }
 
+    @Override
     public void replaceIfExists(String token, String replacement) {
       if (readAheadBuff.startsWith(token))
         readAheadBuff = replacement + readAheadBuff.substring(token.length());
+    }
+
+    @Override
+    public String toString() {
+      return readAheadBuff;
     }
   }
 
@@ -187,6 +215,11 @@ public class PropertiesFilterReader extends Reader {
 
     private boolean inReplacement() {
       return replacement != null;
+    }
+
+    @Override
+    public String toString() {
+      return buffer.toString();
     }
   }
 }
