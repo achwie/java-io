@@ -8,6 +8,46 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * <p>
+ * A {@link Reader} that performs replacements "on the fly" and returns the changed stream to the user. This reader
+ * simply acts as a "filter" that modifies the content that flows through it, therefore it always needs a
+ * <em>source reader</em>. It is easy to use, even when working with very large files.
+ * </p>
+ * <p>
+ * This class can be handy if you have a file with variables in the form <code>${myvar}</code> that should be replaced.
+ * For example assume the file <code>input.txt</code>:
+ * </p>
+ * 
+ * <pre>
+ * This is the great program ${name}, v${version}
+ * 
+ * Description goes here.
+ * </pre>
+ * 
+ * <p>
+ * A program could read this file, using the {@link PropertiesFilterReader} as follows:
+ * </p>
+ * 
+ * <pre>
+ * final Properties props = new Properties();
+ * props.put(&quot;${name}&quot;, &quot;quicker&quot;);
+ * props.put(&quot;${version}&quot;, &quot;0.1&quot;);
+ * 
+ * final PropertiesFilterReader filterReader = new PropertiesFilterReader(new FileReader(&quot;input.txt&quot;), props);
+ * // read contents and do something
+ * </pre>
+ * 
+ * <p>
+ * The reader would return the following content:
+ * </p>
+ * 
+ * <pre>
+ * This is the great program quicker, v0.1
+ * 
+ * Description goes here.
+ * </pre>
+ * 
+ * 
  * 
  * @author Achim Wiedemann, Oct 15, 2013
  */
@@ -17,6 +57,13 @@ public class PropertiesFilterReader extends Reader {
   private final StringListSearchTree searchMap;
   private ReplacementBuffer buffer;
 
+  /**
+   * Creates a {@code PropertiesFilterReader} using a source reader and a replacement map.
+   * 
+   * @param reader The source reader to read from.
+   * @param replacements The replacement map, whereas the keys are the search strings and the values the according
+   *          replacements.
+   */
   public PropertiesFilterReader(Reader reader, Map<Object, Object> replacements) {
     this.reader = reader;
     this.replacements = replacements;
